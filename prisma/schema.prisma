@@ -1,0 +1,337 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Organization ────────────────────────────────────────────────────────────
+
+model Organization {
+  id         String   @id @default(cuid())
+  clerkOrgId String   @unique
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  contacts    Contact[]
+  companies   Company[]
+  deals       Deal[]
+  competitors Competitor[]
+  customers   Customer[]
+  icps        ICP[]
+  objectives  Objective[]
+  campaigns   Campaign[]
+  marketSizes MarketSize[]
+}
+
+// ─── CRM ─────────────────────────────────────────────────────────────────────
+
+model Contact {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  email     String?
+  phone     String?
+  title     String?
+  linkedin  String?
+  icpScore  Float?
+  icpNotes  String?
+  source    String   @default("manual")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  company      Company?     @relation(fields: [companyId], references: [id])
+  companyId    String?
+  deals        Deal[]
+  campaigns    CampaignContact[]
+
+  @@index([orgId])
+}
+
+model Company {
+  id                String   @id @default(cuid())
+  orgId             String
+  name              String
+  website           String?
+  industry          String?
+  employeeCount     Int?
+  revenue           Float?
+  country           String?
+  description       String?
+  sourcingSolution  String?
+  sourcingNotes     String?
+  erpSolution       String?
+  erpNotes          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contacts     Contact[]
+  deals        Deal[]
+  campaigns    CampaignCompany[]
+
+  @@index([orgId])
+}
+
+model Deal {
+  id        String    @id @default(cuid())
+  orgId     String
+  name      String
+  value     Float     @default(0)
+  stage     DealStage @default(PROSPECT)
+  closeDate DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact      Contact?     @relation(fields: [contactId], references: [id])
+  contactId    String?
+  company      Company?     @relation(fields: [companyId], references: [id])
+  companyId    String?
+
+  @@index([orgId])
+  @@index([stage])
+}
+
+enum DealStage {
+  PROSPECT
+  QUALIFIED
+  DEMO
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+// ─── Market Research ─────────────────────────────────────────────────────────
+
+model Competitor {
+  id             String    @id @default(cuid())
+  orgId          String
+  name           String
+  website        String?
+  positioning    String?
+  pricing        String?
+  strengths      String?
+  weaknesses     String?
+  opportunities  String?
+  threats        String?
+  notes          String?
+  aiSummary      String?
+  lastAnalyzedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customers    CompetitorCustomer[]
+
+  @@index([orgId])
+}
+
+// ─── Customer (tracks which of your customers/prospects mention each competitor)
+
+model Customer {
+  id            String   @id @default(cuid())
+  orgId         String
+  name          String
+  identifier    String?
+  website       String?
+  industry      String?
+  employees     Int?
+  country       String?
+  city          String?
+  phone         String?
+  annualRevenue Float?
+  foundedYear   Int?
+  logoUrl       String?
+  linkedinUrl   String?
+  accountOwner  String?
+  accountStage  String?
+  description   String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  competitors  CompetitorCustomer[]
+
+  @@index([orgId])
+  @@index([orgId, identifier])
+}
+
+model CompetitorCustomer {
+  competitorId String
+  customerId   String
+  createdAt    DateTime @default(now())
+
+  competitor Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@id([competitorId, customerId])
+  @@index([customerId])
+}
+
+model ICP {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  industries  String[]
+  companySize String?
+  titles      String[]
+  geographies String[]
+  painPoints  String[]
+  criteria    Json     @default("{}")
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+model MarketSize {
+  id        String   @id @default(cuid())
+  orgId     String
+  segment   String
+  tam       Float?
+  sam       Float?
+  som       Float?
+  year      Int      @default(2026)
+  aiSummary String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// ─── Goals & OKRs ────────────────────────────────────────────────────────────
+
+model Objective {
+  id          String    @id @default(cuid())
+  orgId       String
+  title       String
+  description String?
+  quarter     String
+  year        Int       @default(2026)
+  status      OKRStatus @default(ON_TRACK)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  keyResults   KeyResult[]
+
+  @@index([orgId])
+}
+
+model KeyResult {
+  id          String    @id @default(cuid())
+  objectiveId String
+  title       String
+  target      Float
+  current     Float     @default(0)
+  unit        String    @default("units")
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  objective Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  checkIns  CheckIn[]
+
+  @@index([objectiveId])
+}
+
+model CheckIn {
+  id          String   @id @default(cuid())
+  keyResultId String
+  value       Float
+  note        String?
+  aiCoaching  String?
+  createdAt   DateTime @default(now())
+
+  keyResult KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+
+  @@index([keyResultId])
+}
+
+enum OKRStatus {
+  ON_TRACK
+  AT_RISK
+  BEHIND
+  COMPLETED
+}
+
+// ─── Market Planning ─────────────────────────────────────────────────────────
+
+model Campaign {
+  id          String          @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  channel     CampaignChannel
+  status      CampaignStatus  @default(PLANNED)
+  budget      Float?
+  revenue     Float?
+  leads       Int?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  companies    CampaignCompany[]
+  contacts     CampaignContact[]
+
+  @@index([orgId])
+}
+
+model CampaignCompany {
+  campaignId String
+  companyId  String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, companyId])
+  @@index([companyId])
+}
+
+model CampaignContact {
+  campaignId String
+  contactId  String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, contactId])
+  @@index([contactId])
+}
+
+enum CampaignChannel {
+  OUTBOUND
+  CONTENT
+  PAID
+  PARTNERSHIPS
+  SEO
+  EVENTS
+  REFERRAL
+  OTHER
+}
+
+enum CampaignStatus {
+  PLANNED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
